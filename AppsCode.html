@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AppsCode - IDE & Converter</title>
+    <style>
+        :root {
+            --bg-color: #1e1e1e;
+            --accent-color: #007bff;
+            --text-color: #ffffff;
+            --editor-bg: #2d2d2d;
+            --danger-color: #ff4d4d;
+            --success-color: #28a745;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Courier New', Courier, monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Topo */
+        header {
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #111;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-clear {
+            background: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .btn-run {
+            background: var(--success-color);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* Área do Editor */
+        #editor-page {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tab-container {
+            display: flex;
+            background: #252525;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 13px;
+            border-bottom: 2px solid transparent;
+            color: #888;
+        }
+
+        .tab.active {
+            border-bottom: 2px solid var(--accent-color);
+            background: var(--editor-bg);
+            color: white;
+        }
+
+        textarea {
+            width: 100%;
+            flex: 1;
+            background: var(--editor-bg);
+            color: #dcdcdc;
+            border: none;
+            padding: 15px;
+            resize: none;
+            font-size: 14px;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        /* Preview Overlay (Janela de Visualização) */
+        #preview-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 100;
+        }
+
+        .close-preview {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 50%;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Seção do AppsGeyser */
+        #converter-section {
+            display: none;
+            flex: 1;
+            padding: 40px 20px;
+            text-align: center;
+            background: #2d2d2d;
+            flex-direction: column;
+        }
+
+        input[type="text"] {
+            width: 90%;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #555;
+            background: #1e1e1e;
+            color: white;
+            margin: 20px auto;
+        }
+
+        .btn-build {
+            background: var(--success-color);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 30px;
+            font-size: 1rem;
+            font-weight: bold;
+        }
+
+        /* Botão de Troca */
+        .switch-container {
+            padding: 15px;
+            background: #111;
+            text-align: center;
+        }
+
+        .btn-switch {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            border-radius: 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="editor-page">
+        <header>
+            <span style="font-weight: bold; color: var(--accent-color);">AppsCode IDE</span>
+            <div class="controls">
+                <button class="btn-run" onclick="runCode()">▶ RUN</button>
+                <button class="btn-clear" onclick="clearCode()">Clear</button>
+            </div>
+        </header>
+
+        <div class="tab-container">
+            <div class="tab active" onclick="switchTab('html')">HTML</div>
+            <div class="tab" onclick="switchTab('css')">CSS</div>
+            <div class="tab" onclick="switchTab('js')">JS</div>
+        </div>
+        
+        <textarea id="html-code" placeholder="<html>..."></textarea>
+        <textarea id="css-code" class="hidden" placeholder="css { ... }"></textarea>
+        <textarea id="js-code" class="hidden" placeholder="function() { ... }"></textarea>
+    </div>
+
+    <div id="preview-overlay">
+        <iframe id="output"></iframe>
+        <button class="close-preview" onclick="closePreview()">X</button>
+    </div>
+
+    <div id="converter-section">
+        <h2>AppsCode Converter</h2>
+        <p>Post the link to the website you want to have as an app below!</p>
+        <input type="text" id="site-link" placeholder="https://seu-site.com">
+        <button class="btn-build" onclick="alert('Redirecionando para AppsGeyser...')">CREATE APK</button>
+    </div>
+
+    <div class="switch-container">
+        <button class="btn-switch" onclick="toggleMode()">🔄 Switching Button</button>
+    </div>
+
+    <script>
+        let currentMode = 'editor';
+
+        function switchTab(type) {
+            const tabs = document.querySelectorAll('.tab');
+            const editors = document.querySelectorAll('textarea');
+            tabs.forEach(t => t.classList.remove('active'));
+            editors.forEach(e => e.classList.add('hidden'));
+            document.getElementById(type + '-code').classList.remove('hidden');
+            event.currentTarget.classList.add('active');
+        }
+
+        function clearCode() {
+            if(confirm("Limpar código?")) {
+                document.getElementById('html-code').value = '';
+                document.getElementById('css-code').value = '';
+                document.getElementById('js-code').value = '';
+            }
+        }
+
+        // Função para simular o "Ver o que o código fez"
+        function runCode() {
+            const html = document.getElementById('html-code').value;
+            const css = "<style>" + document.getElementById('css-code').value + "</style>";
+            const js = "<script>" + document.getElementById('js-code').value + "<\/script>";
+            
+            const output = document.getElementById('output');
+            const preview = document.getElementById('preview-overlay');
+            
+            const fullCode = html + css + js;
+            
+            preview.style.display = 'block';
+            output.srcdoc = fullCode;
+        }
+
+        function closePreview() {
+            document.getElementById('preview-overlay').style.display = 'none';
+        }
+
+        function toggleMode() {
+            const editorPage = document.getElementById('editor-page');
+            const converterPage = document.getElementById('converter-section');
+
+            if (currentMode === 'editor') {
+                editorPage.style.display = 'none';
+                converterPage.style.display = 'flex';
+                currentMode = 'converter';
+            } else {
+                editorPage.style.display = 'flex';
+                converterPage.style.display = 'none';
+                currentMode = 'editor';
+            }
+        }
+    </script>
+</body>
+</html>
